@@ -1,10 +1,10 @@
-from lanhchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama
 
 from .models import Message
 
 class Summarizer:
     def __init__(self, model: str, temperature: int, system_prompt: str):
-       self.sysem_prompt = system_prompt
+       self.system_prompt = system_prompt
 
        self.llm = ChatOllama(
            model=model,

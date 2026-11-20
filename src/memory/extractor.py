@@ -34,7 +34,7 @@ class Extractor():
             {context.user_message.content}
 
             Latest Assistant Response:
-            {context.assistant_message.content}
+            {context.agent_message.content}
         """
 
         result = await self.llm.ainvoke([
