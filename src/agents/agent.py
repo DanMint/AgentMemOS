@@ -36,7 +36,7 @@ class Agent():
         return response
 
 def append_to_db(message_id, session_id, role, content, timestamp) -> None:
-    conn = sqlite3.connect("db/memory.db")
+    conn = sqlite3.connect("db/messages.db")
 
     conn.execute(
         "INSERT INTO messages (id, session_id, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
