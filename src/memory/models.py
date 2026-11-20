@@ -72,3 +72,15 @@ class ExtractionContext(BaseModel):
     user_message: Message
     agent_message: Message
 
+"""
+    Represents an update to the memory
+    action - what should happen (ADD - Insert a new memory, UPDATE - Modify an existing memory, DELETE - Remove an existing memory, NOOP - Make no changes)
+    key - 
+    memory_id - 
+    version - 
+"""
+class UpdateResult(BaseModel):
+    action: Literal["ADD", "UPDATE", "DELETE", "NOOP"]
+    key: str
+    memory_id: int | None = None
+    version: int | None = None
