@@ -1,6 +1,10 @@
 from langchain.agents import create_agent
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 import asyncio
+import sqlite3
+from datetime import datetime
+
+conn = sqlite3.connect()
 
 class Agent():
     def __init__(self, model: str, temperature: int, agent_prompt: str) -> None:
@@ -36,10 +40,22 @@ class Agent():
 async def main():
     a1 = Agent(model="llama3.1:8b", temperature=0, agent_prompt="Answer what the user asks")
 
+    meessage_id = 1
     while True:
         user_prompt = input("Ask your questino: ")
+
+        # record user input (mt)
+        conn = sqlite3.connect("db/memory.db")
+        conn.execute(
+            "INSERT INTO messages (id, session_id, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
+            (meessage_id, "1", "user", user_prompt, datetime.now())
+            )
+
+        conn.commit()
+
         response = await a1.communicate(prompt=user_prompt)
         print(response.get('messages')[1].content)
+        meessage_id += 1
 
         if user_prompt == "exit":
             break
