@@ -44,7 +44,7 @@ async def main():
     while True:
         user_prompt = input("Ask your questino: ")
 
-        # record user input (mt)
+        # record user input (mt-1)
         conn = sqlite3.connect("db/memory.db")
         conn.execute(
             "INSERT INTO messages (id, session_id, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
@@ -54,6 +54,7 @@ async def main():
         conn.commit()
 
         response = await a1.communicate(prompt=user_prompt)
+        # record agents response (mt)
         print(response.get('messages')[1].content)
         meessage_id += 1
 
