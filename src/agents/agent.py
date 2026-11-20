@@ -79,7 +79,7 @@ async def main():
     session_id = os.getenv("AGENTMEMOS_SESSION_ID", "1")
     scope = os.getenv("AGENTMEMOS_SCOPE", "shared")
     chat_model = os.getenv("AGENTMEMOS_CHAT_MODEL", "llama3.1:8b")
-    extraction_model = os.getenv("AGENTMEMOS_EXTRACTION_MODEL", "qwen3.5:9b")
+    extraction_model = os.getenv("AGENTMEMOS_EXTRACTION_MODEL", "llama3.1:8b")
     update_model = os.getenv("AGENTMEMOS_UPDATE_MODEL", extraction_model)
     embedding_model = os.getenv("AGENTMEMOS_EMBEDDING_MODEL", "nomic-embed-text")
 
