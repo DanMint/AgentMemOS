@@ -1,4 +1,5 @@
 from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_core.messages import SystemMessage, HumanMessage
 import asyncio
 
 from .models import ExtractionContext, ExtractedMemories
