@@ -42,7 +42,7 @@ class MemoryRecord(BaseModel):
     expected_version - indicates the version of the memory that the updater based its decision on
     new_content - the information that should be stored when adding or updating memory
 """
-class MemoryDescion(BaseModel):
+class MemoryDecision(BaseModel):
     action: Literal["ADD", "UPDATE", "DELETE", "NOOP"]
     target_id: int | None = None
     expected_version: int | None = None
@@ -72,3 +72,15 @@ class ExtractionContext(BaseModel):
     user_message: Message
     agent_message: Message
 
+"""
+    Represents an update to the memory
+    action - what should happen (ADD - Insert a new memory, UPDATE - Modify an existing memory, DELETE - Remove an existing memory, NOOP - Make no changes)
+    key - 
+    memory_id - 
+    version - 
+"""
+class UpdateResult(BaseModel):
+    action: Literal["ADD", "UPDATE", "DELETE", "NOOP"]
+    key: str
+    memory_id: int | None = None
+    version: int | None = None

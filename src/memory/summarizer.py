@@ -29,6 +29,9 @@ class Summarizer:
             HumanMessage(content=user_prompt)
         ])
 
-        return response
+        if not isinstance(response.content, str):
+            raise TypeError("Expected summarizer to return text")
+
+        return  response.content.strip()
 
            
