@@ -1,2 +1,6 @@
 myenv/
 db/
+src/__pycache__
+src/storage/__pycache__
+src/memory/__pycache__/
+src/agents/__pycache__/

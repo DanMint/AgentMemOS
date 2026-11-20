@@ -1,6 +1,8 @@
 import sqlite3
 from pathlib import Path
 
+DB_PATH = Path(__file__).resolve().parent.parent / "db" / "memories.db"
+
 def create_messages_table(conn):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS messages (
@@ -11,7 +13,6 @@ def create_messages_table(conn):
             timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
-
 
 def create_memory_table(conn):
     conn.execute("""
@@ -25,7 +26,6 @@ def create_memory_table(conn):
         )
     """)
 
-
 def create_semantic_summary_table(conn):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS conversation_summaries (
@@ -36,15 +36,20 @@ def create_semantic_summary_table(conn):
         )
     """)
 
-
 def main():
-    Path("db").mkdir(parents=True, exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect("db/memories.db") as conn:
+    conn = sqlite3.connect(DB_PATH)
+
+    try:
         create_messages_table(conn)
         create_memory_table(conn)
         create_semantic_summary_table(conn)
+
         conn.commit()
+
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

@@ -1,27 +1,32 @@
-from langchain.agents import create_agent
-from langchain_ollama import ChatOllama, OllamaEmbeddings
-import asyncio
-import sqlite3
-from datetime import datetime, timezone
 
-class Agent():
-    def __init__(self, model: str, temperature: int, agent_prompt: str) -> None:
+from langchain.agents import create_agent
+from langchain_ollama import ChatOllama
+import asyncio
+
+from src.main import main as initialize_database, DB_PATH
+from src.storage.repository import ConversationRepository
+from src.memory.extractor import Extractor
+from src.memory.manager import ExtractionManager
+
+
+class Agent:
+    def __init__(self, model: str, temperature: float, agent_prompt: str) -> None:
         self.model = model
         self.temperature = temperature
         self.agent_prompt = agent_prompt
 
         self.llm = ChatOllama(
-            model = self.model,
-            temperature = self.temperature
+            model=self.model,
+            temperature=self.temperature
         )
 
         self.agent = create_agent(
-            model = self.llm,
-            tools = [],
-            system_prompt = self.agent_prompt
+            model=self.llm,
+            tools=[],
+            system_prompt=self.agent_prompt
         )
 
-    async def communicate(self, prompt:str) -> str:
+    async def communicate(self, prompt: str) -> str:
         response = await self.agent.ainvoke(
             {
                 "messages": [
@@ -33,38 +38,75 @@ class Agent():
             }
         )
 
-        return response
+        # Extract the final agent response
+        agent_response = response["messages"][-1].content
 
-def append_to_db(message_id, session_id, role, content, timestamp) -> None:
-    conn = sqlite3.connect("db/messages.db")
+        if not isinstance(agent_response, str):
+            raise TypeError("Expected a string response from agent")
 
-    conn.execute(
-        "INSERT INTO messages (id, session_id, role, content, timestamp) VALUES (?, ?, ?, ?, ?)",
-        (message_id, "1", "user", content, datetime.now(timezone.utc).isoformat())
-    )
-
-    conn.commit()
+        return agent_response
 
 async def main():
-    a1 = Agent(model="llama3.1:8b", temperature=0, agent_prompt="Answer what the user asks")
+    # Initialize database and tables
+    initialize_database()
 
-    meessage_id = 1
+    session_id = "1"
+
+    # Initialize repository
+    repository = ConversationRepository(
+        db_path=DB_PATH
+    )
+
+    # Initialize agent
+    a1 = Agent(
+        model="llama3.1:8b",
+        temperature=0,
+        agent_prompt="Answer what the user asks"
+    )
+
+    # Initialize extractor
+    extractor = Extractor(model="qwen3.5:9b", temperature=0)
+
+    # Initialize extraction manager
+    manager = ExtractionManager(repository=repository, extractor=extractor)
+
     while True:
-        user_prompt = input("Ask your questino: ")
 
-        # record user input (mt-1)
-        append_to_db(meessage_id, "1", "user", user_prompt, datetime.now(timezone.utc).isoformat())
-        meessage_id += 1
+        try:
+            user_prompt = input("Ask your question: ").strip()
 
-        response = await a1.communicate(prompt=user_prompt)
-        # record agents response (mt)
-        append_to_db(meessage_id, "1", "agent", response.get('messages')[1].content, datetime.now(timezone.utc).isoformat())
-        meessage_id += 1
-        
-        print(response.get('messages')[1].content)
-        
-        if user_prompt == "exit":
+        except (EOFError, KeyboardInterrupt):
+            print()
             break
+
+        if user_prompt.lower() == "exit":
+            break
+
+        if not user_prompt:
+            continue
+
+        # 1. Agent generates response
+        agent_response = await a1.communicate(prompt=user_prompt)
+
+        print(f"Agent: {agent_response}")
+
+        # 2. Save user message (m_t-1)
+        user_message_id = repository.append_message(session_id=session_id, role="user", content=user_prompt)
+
+        # 3. Save agent response (m_t)
+        agent_message_id = repository.append_message(session_id=session_id, role="agent", content=agent_response)
+
+        # 4. Execute memory extraction
+        extracted_memories = await manager.process_interaction(
+            session_id=session_id,
+            user_message_id=user_message_id,
+            agent_message_id=agent_message_id
+        )
+
+        # 5. Display extracted memories
+        print("\nExtracted Memories:")
+        print(extracted_memories.model_dump_json(indent=2))
+        print()
 
 if __name__ == "__main__":
     asyncio.run(main())
