@@ -42,7 +42,7 @@ class MemoryRecord(BaseModel):
     expected_version - indicates the version of the memory that the updater based its decision on
     new_content - the information that should be stored when adding or updating memory
 """
-class MemoryDescion(BaseModel):
+class MemoryDecision(BaseModel):
     action: Literal["ADD", "UPDATE", "DELETE", "NOOP"]
     target_id: int | None = None
     expected_version: int | None = None
