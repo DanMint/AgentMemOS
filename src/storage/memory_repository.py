@@ -118,7 +118,8 @@ class MemoryRepository:
 
 
     def apply_batch(self, changes: list[PreparedMemoryChange],
-                    scope: str) -> list[UpdateResult]:
+                    scope: str, *,
+                    expected_active: dict[int, int] | None = None) -> list[UpdateResult]:
         """Atomically commit all operations from one user interaction.
 
         BEGIN IMMEDIATE serializes competing SQLite writers; each UPDATE/DELETE
@@ -128,6 +129,13 @@ class MemoryRepository:
         try:
             with self.connect() as conn:
                 conn.execute("BEGIN IMMEDIATE")
+                if expected_active is not None:
+                    rows = conn.execute(
+                        "SELECT id, version FROM memory WHERE scope=? AND is_deleted=0",
+                        (scope,),
+                    )
+                    if {row["id"]: row["version"] for row in rows} != expected_active:
+                        raise MemoryConflictError("Memory changed while resolving this turn")
                 for change in changes:
                     if change.action == "ADD":
                         if change.content is None or change.embedding is None:

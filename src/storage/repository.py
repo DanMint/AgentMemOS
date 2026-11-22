@@ -4,6 +4,9 @@ from pathlib import Path
 
 from src.memory.models import ExtractionContext, Message
 
+RECENT_MESSAGE_LIMIT = 10
+
+
 class ConversationRepository:
     def __init__(self, db_path="db/memories.db"):
         self.db_path = Path(db_path)
@@ -35,6 +38,29 @@ class ConversationRepository:
             )
             return cursor.lastrowid
 
+    def get_pending_memory_turn(self, session_id: str, scope: str) -> str | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT payload FROM pending_memory_turns WHERE session_id=? AND scope=?",
+                (session_id, scope),
+            ).fetchone()
+        return row["payload"] if row else None
+
+    def save_pending_memory_turn(self, session_id: str, scope: str, payload: str | None) -> None:
+        with self.connect() as conn:
+            if payload is None:
+                conn.execute(
+                    "DELETE FROM pending_memory_turns WHERE session_id=? AND scope=?",
+                    (session_id, scope),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO pending_memory_turns (session_id, scope, payload)
+                       VALUES (?, ?, ?) ON CONFLICT(session_id, scope) DO UPDATE
+                       SET payload=excluded.payload""",
+                    (session_id, scope, payload),
+                )
+
     def get_summary(self, session_id: str) -> str:
         with self.connect() as conn:
             row = conn.execute(
@@ -44,7 +70,47 @@ class ConversationRepository:
 
             return row["summary"] if row else ""
 
-    def get_recent_messages(self, session_id: str, before_id: int, limit: int = 10) -> list[Message]:
+    def get_summary_batch(
+        self, session_id: str, through_id: int, batch_size: int,
+    ) -> tuple[str, int, int, list[Message]] | None:
+        with self.connect() as conn:
+            conn.execute("BEGIN")
+            state = conn.execute(
+                """SELECT summary, last_message_seq FROM conversation_summaries
+                   WHERE session_id = ?""",
+                (session_id,),
+            ).fetchone()
+            checkpoint = state["last_message_seq"] if state else 0
+            required = batch_size + RECENT_MESSAGE_LIMIT
+            rows = conn.execute(
+                """SELECT id, role, content FROM messages
+                   WHERE session_id = ? AND id > ? AND id <= ?
+                   ORDER BY id LIMIT ?""",
+                (session_id, checkpoint, through_id, required),
+            ).fetchall()
+
+        if len(rows) < required:
+            return None
+        batch = rows[:batch_size]
+        messages = [Message(role=row["role"], content=row["content"]) for row in batch]
+        return state["summary"] if state else "", checkpoint, batch[-1]["id"], messages
+
+    def save_summary(self, session_id: str, summary: str,
+                     checkpoint: int, through_id: int) -> bool:
+        with self.connect() as conn:
+            cursor = conn.execute(
+                """INSERT INTO conversation_summaries (session_id, summary, last_message_seq)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(session_id) DO UPDATE SET
+                       summary = excluded.summary,
+                       last_message_seq = excluded.last_message_seq,
+                       updated_at = CURRENT_TIMESTAMP
+                   WHERE conversation_summaries.last_message_seq = ?""",
+                (session_id, summary, through_id, checkpoint),
+            )
+            return cursor.rowcount == 1
+
+    def get_recent_messages(self, session_id: str, before_id: int, limit: int = RECENT_MESSAGE_LIMIT) -> list[Message]:
         with self.connect() as conn:
             rows = conn.execute(
                 """SELECT role, content FROM messages
@@ -70,15 +136,18 @@ class ConversationRepository:
             ).fetchall()
 
             summary_row = conn.execute(
-                "SELECT summary FROM conversation_summaries WHERE session_id = ?",
-                (session_id,),
+                """SELECT summary, last_message_seq FROM conversation_summaries
+                   WHERE session_id = ? AND last_message_seq < ?""",
+                (session_id, user_message_id),
             ).fetchone()
 
             rows = conn.execute(
                 """SELECT role, content FROM messages
-                   WHERE session_id = ? AND id < ?
-                   ORDER BY id DESC LIMIT 10""",
-                (session_id, user_message_id),
+                   WHERE session_id = ? AND id < ? AND id > ?
+                   ORDER BY id DESC LIMIT ?""",
+                (session_id, user_message_id,
+                 summary_row["last_message_seq"] if summary_row else 0,
+                 RECENT_MESSAGE_LIMIT),
             ).fetchall()
 
         by_id = {row["id"]: row for row in pair}

@@ -144,8 +144,6 @@ Recent Messages:
 Latest User Message:
 {context.user_message.content}
 
-Latest Agent Response:
-{context.agent_message.content}
 """
 
         return await self.llm.ainvoke([

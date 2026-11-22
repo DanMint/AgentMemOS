@@ -1,7 +1,10 @@
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "db" / "memories.db"
+DB_PATH = Path(os.getenv(
+    "AGENTMEMOS_DB_PATH", str(Path(__file__).resolve().parent.parent / "db" / "memories.db"),
+))
 
 def create_messages_table(conn):
     conn.execute("""
@@ -71,6 +74,17 @@ def create_semantic_summary_table(conn):
         )
     """)
 
+def create_pending_turn_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pending_memory_turns (
+            session_id TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            PRIMARY KEY (session_id, scope)
+        )
+    """)
+
+
 def main():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -81,6 +95,7 @@ def main():
         create_memory_table(conn)
         create_memory_history_table(conn)
         create_semantic_summary_table(conn)
+        create_pending_turn_table(conn)
         conn.commit()
     except Exception:
         conn.rollback()

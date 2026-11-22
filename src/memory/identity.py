@@ -13,6 +13,9 @@ from src.memory.models import MemoryCandidate, MemoryRecord
 
 PREFERENCE_SPELLINGS = {"turtel": "turtle", "turtels": "turtles"}
 
+ADDITIONAL_VEHICLE_PREFIX = "user.vehicle.additional."
+INVESTMENT_DEPOSIT_PREFIX = "user.financial.investment_deposit."
+
 COLORS = frozenset({
     "black", "white", "red", "blue", "green", "yellow", "orange",
     "purple", "pink", "brown", "gray", "grey", "silver", "gold",
@@ -29,7 +32,16 @@ _STOP = frozenset({
 })
 
 
+def normalize_grouped_numbers(value: str) -> str:
+    return re.sub(
+        r"(?<![\w,])\d{1,3}(?:,\d{3})+(?![\w,])",
+        lambda match: match[0].replace(",", ""),
+        value,
+    )
+
+
 def tokens(value: str) -> list[str]:
+    value = normalize_grouped_numbers(value)
     value = re.sub(
         r"\b(?:do(?:es)? not|don['’]?t|doesn['’]?t)\s+like\b",
         "dislike", value, flags=re.I,
@@ -63,7 +75,14 @@ def normalized_key(key: str, content: str = "", source_message: str = "") -> str
     c = content.casefold()
     source = source_message.casefold()
 
+    if key.startswith(ADDITIONAL_VEHICLE_PREFIX):
+        return key
+
     if "vehicle" in parts or "car" in parts:
+        words = tokens(content)
+        if (len(words) == 4 and words[:2] == ["the", "user"]
+                and words[2] in {"like", "dislike"} and words[3] in {"car", "cars"}):
+            return f"user.{words[2]}s.cars"
         if "horsepower" in parts or ("engine" in parts and "power" in parts):
             return "user.vehicle.horsepower"
         if "transmission" in parts or "gearbox" in parts:
@@ -161,8 +180,17 @@ def is_represented(candidate: MemoryCandidate, records: list[MemoryRecord]) -> b
     needed = meaningful(candidate.content)
     if not needed:
         return False
-    return any(same_fact(candidate, record) and needed.issubset(meaningful(record.content))
-               for record in records)
+    for record in records:
+        if not same_fact(candidate, record):
+            continue
+        stored = meaningful(record.content)
+        if needed.issubset(stored):
+            return True
+        if candidate.key.startswith(INVESTMENT_DEPOSIT_PREFIX) and "deposited" in stored:
+            # Repeating an earlier in-progress statement must not undo confirmation.
+            if "depositing" in needed and (needed - {"depositing"}).issubset(stored):
+                return True
+    return False
 
 
 def is_represented_in_text(candidate: MemoryCandidate, key: str, content: str) -> bool:

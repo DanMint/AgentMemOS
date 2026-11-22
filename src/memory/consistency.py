@@ -1,6 +1,9 @@
 import re
 
-from src.memory.identity import COLORS, PREFERENCE_SPELLINGS, is_represented, normalized_key
+from src.memory.identity import (
+    COLORS, PREFERENCE_SPELLINGS, is_represented, normalize_grouped_numbers,
+    normalized_key,
+)
 from src.memory.models import (
     MemoryCandidate, MemoryDecision, MemoryPlan, MemoryRecord,
     PreparedMemoryChange, UpdateResult,
@@ -48,6 +51,7 @@ def _words(text: str) -> list[str]:
         flags=re.IGNORECASE,
     )
 
+    text = normalize_grouped_numbers(text)
     words = [
         word.casefold()
         for word in re.findall(
@@ -61,6 +65,10 @@ def _words(text: str) -> list[str]:
         "plans": "plan",
         "planning": "plan",
         "buys": "buy",
+        "wants": "want",
+        "investing": "invest",
+        "investment": "invest",
+        "investments": "invest",
 
         "likes": "like",
         "loves": "like",

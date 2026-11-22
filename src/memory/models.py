@@ -8,8 +8,18 @@ class MemoryCandidate(BaseModel):
     content: str
 
 
+class VehiclePurchase(BaseModel):
+    """Details stated in the latest message about one completed purchase."""
+
+    model: str = Field(description="Make/model/trim as written by the user")
+    year: int
+    color: str | None = None
+    price: str | None = Field(default=None, description="Amount and currency as written")
+
+
 class ExtractedMemories(BaseModel):
     memories: list[MemoryCandidate] = Field(default_factory=list)
+    vehicle_purchase: VehiclePurchase | None = None
 
 
 class MemoryRecord(BaseModel):
