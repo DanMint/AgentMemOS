@@ -1,7 +1,8 @@
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
+import asyncio
 
-from .models import ExtractionContext, ExtractedMemories
+from .models import ExtractionContext, ExtractedMemories, Message
 
 class Extractor:
     def __init__(self, model: str, temperature: float, system_prompt: str):
